@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12071c">
+<title>Для Лиз</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  /* ═══════════════════════════════════════════════════════════════
+     БАЗА
+  ═══════════════════════════════════════════════════════════════ */
+  :root {
+    --cream: #fff6e8;
+    --gold: #ffd9a8;
+    --pink: #ff9ec6;
+    --serif: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
+  }
+
+  *,
+  *::before,
+  *::after { box-sizing: border-box; }
+
+  html { height: 100%; }
+
+  body {
+    margin: 0;
+    min-height: 100%;
+    overflow: hidden;
+    background:
+      radial-gradient(115% 90% at 50% 22%, #3c1a59 0%, #281035 34%, #12071c 66%, #050109 100%);
+    color: var(--cream);
+    font-family: var(--serif);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Мягкие цветные пятна поверх фона — глубина без картинок */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: -15%;
+    z-index: 1;
+    pointer-events: none;
+    background:
+      radial-gradient(38% 30% at 28% 26%, rgba(255, 122, 182, .12), transparent 70%),
+      radial-gradient(34% 28% at 74% 24%, rgba(150, 110, 255, .14), transparent 70%),
+      radial-gradient(40% 32% at 50% 82%, rgba(255, 150, 120, .07), transparent 70%);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     СЦЕНА THREE.JS
+  ═══════════════════════════════════════════════════════════════ */
+  #scene {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 1.4s ease;
+  }
+  #scene.is-visible { opacity: 1; }
+  #scene canvas { display: block; width: 100%; height: 100%; }
+
+  /* Виньетка + затемнение снизу под текст */
+  #vignette {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background:
+      radial-gradient(120% 95% at 50% 42%, transparent 38%, rgba(4, 1, 8, .5) 78%, rgba(2, 0, 5, .8) 100%),
+      linear-gradient(to top, rgba(5, 2, 10, .82) 0%, rgba(5, 2, 10, .4) 16%, transparent 42%);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     ИНТЕРФЕЙС: ТЕКСТ, СЕРДЦЕ, КНОПКА
+  ═══════════════════════════════════════════════════════════════ */
+  #ui {
+    position: fixed;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 1.2rem clamp(1.1rem, 5vw, 2.4rem) clamp(1.1rem, 3.5vh, 2rem);
+    pointer-events: none;
+  }
+
+  .message {
+    width: min(46rem, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(.3rem, 1vh, .6rem);
+    margin-bottom: clamp(.9rem, 2.4vh, 1.6rem);
+    text-align: center;
+  }
+
+  .line {
+    margin: 0;
+    opacity: 0;
+    filter: blur(12px);
+    transform: translateY(24px);
+    will-change: transform, opacity, filter;
+    font-size: clamp(1.4rem, 1.05rem + 1.05vw, 2.15rem);
+    font-weight: 300;
+    line-height: 1.42;
+    letter-spacing: .012em;
+    color: var(--cream);
+    text-wrap: balance;
+    text-shadow:
+      0 0 12px rgba(255, 220, 180, .32),
+      0 0 38px rgba(255, 140, 200, .22),
+      0 2px 24px rgba(0, 0, 0, .65);
+  }
+
+  /* Финал: сердце + кнопка */
+  .finale {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(.55rem, 1.6vh, .9rem);
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+  }
+  .finale.is-active { pointer-events: auto; }
+
+  .heart {
+    width: clamp(54px, 7.5vw, 76px);
+    opacity: 0;
+    transform: scale(.6);
+    filter:
+      drop-shadow(0 0 14px rgba(255, 120, 170, .55))
+      drop-shadow(0 0 46px rgba(255, 120, 170, .25));
+  }
+  .heart svg { display: block; width: 100%; height: auto; }
+
+  /* Пульсация — на самом SVG, чтобы не конфликтовать с GSAP-скейлом обёртки */
+  .finale.is-pulsing .heart svg {
+    animation: heartPulse 2.8s ease-in-out infinite;
+    transform-origin: 50% 55%;
+  }
+  @keyframes heartPulse {
+    0%, 100% { transform: scale(1); }
+    14%      { transform: scale(1.09); }
+    28%      { transform: scale(1); }
+    42%      { transform: scale(1.05); }
+    56%      { transform: scale(1); }
+  }
+
+  .replay {
+    font-family: var(--serif);
+    font-size: .98rem;
+    font-weight: 400;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--gold);
+    background: rgba(255, 220, 190, .06);
+    border: 1px solid rgba(255, 214, 170, .38);
+    border-radius: 999px;
+    padding: .68rem 1.9rem .62rem;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: background .45s ease, border-color .45s ease, box-shadow .45s ease, transform .45s ease;
+  }
+  .replay:hover {
+    background: rgba(255, 220, 190, .14);
+    border-color: rgba(255, 226, 190, .72);
+    box-shadow: 0 0 26px rgba(255, 170, 200, .32);
+    transform: translateY(-1px);
+  }
+  .replay:active { transform: translateY(0); }
+  .replay:focus-visible {
+    outline: 2px solid rgba(255, 220, 180, .85);
+    outline-offset: 4px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     ЗАПАСНОЙ ВАРИАНТ (нет WebGL / CDN не загрузился)
+  ═══════════════════════════════════════════════════════════════ */
+  .fallback {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: grid;
+    place-items: center;
+    padding: clamp(2rem, 8vh, 5rem) 1.3rem;
+    overflow-y: auto;
+    background:
+      radial-gradient(110% 90% at 50% 20%, #3a1955 0%, #24102f 38%, #0c0513 78%, #040106 100%);
+  }
+  .fallback[hidden] { display: none; }
+
+  .fallback__inner {
+    width: min(44rem, 100%);
+    text-align: center;
+  }
+  .fallback__heart {
+    width: 58px;
+    margin: 0 auto 1.6rem;
+    filter: drop-shadow(0 0 16px rgba(255, 120, 170, .5));
+    animation: heartPulse 3.4s ease-in-out infinite;
+  }
+  .fallback__heart svg { display: block; width: 100%; height: auto; }
+
+  .fallback__note {
+    margin: 0 auto;
+    max-width: 26rem;
+    font-size: clamp(1rem, .8rem + .6vw, 1.2rem);
+    font-style: italic;
+    line-height: 1.5;
+    color: rgba(255, 238, 226, .62);
+  }
+
+  .fallback__message {
+    margin-top: clamp(2rem, 6vh, 3.2rem);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(.4rem, 1.4vh, .8rem);
+  }
+  .fallback__line {
+    margin: 0;
+    opacity: 0;
+    font-size: clamp(1.4rem, .95rem + 1.7vw, 2.2rem);
+    font-weight: 300;
+    line-height: 1.4;
+    color: var(--cream);
+    text-shadow: 0 0 18px rgba(255, 190, 160, .25), 0 0 46px rgba(255, 130, 190, .18);
+    animation: fallbackLine 1.3s cubic-bezier(.22, .61, .36, 1) forwards;
+  }
+  @keyframes fallbackLine {
+    from { opacity: 0; filter: blur(11px); transform: translateY(16px); }
+    to   { opacity: 1; filter: blur(0);    transform: none; }
+  }
+
+  /* В запасном режиме прячем всю 3D-часть */
+  body.is-fallback { overflow-y: auto; }
+  body.is-fallback #scene,
+  body.is-fallback #vignette,
+  body.is-fallback #ui,
+  body.is-fallback::before { display: none; }
+
+  /* ═══════════════════════════════════════════════════════════════
+     АДАПТИВ
+  ═══════════════════════════════════════════════════════════════ */
+  @media (max-width: 767px) {
+    .line {
+      font-size: clamp(1.5rem, 5.4vw, 1.95rem);
+      line-height: 1.34;
+    }
+    .message { gap: .24rem; }
+    .replay { font-size: .9rem; letter-spacing: .18em; }
+  }
+
+  @media (max-height: 560px) {
+    .line { font-size: clamp(1.1rem, 4vh, 1.5rem); }
+    .message { gap: .1rem; margin-bottom: .5rem; }
+    .heart { width: 46px; }
+    .finale { gap: .35rem; }
+    .replay { padding: .5rem 1.5rem .46rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #scene { transition-duration: .01s; }
+    .heart svg,
+    .fallback__heart { animation: none !important; }
+    .fallback__line { animation-duration: .01s; animation-delay: 0s !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Сцена -->
+<div id="scene" aria-hidden="true"></div>
+<div id="vignette" aria-hidden="true"></div>
+
+<!-- Текстовая часть -->
+<main id="ui">
+  <section id="message" class="message" aria-live="polite" aria-atomic="false"></section>
+
+  <div id="finale" class="finale">
+    <div id="heart" class="heart" aria-hidden="true">
+      <svg viewBox="0 0 100 92" role="presentation" focusable="false">
+        <defs>
+          <linearGradient id="heartGradient" x1="10%" y1="0%" x2="90%" y2="100%">
+            <stop offset="0%" stop-color="#ffe1c2"/>
+            <stop offset="45%" stop-color="#ff9ec6"/>
+            <stop offset="100%" stop-color="#ff5f8f"/>
+          </linearGradient>
+        </defs>
+        <path d="M50 88 C22 66 4 48 4 28 C4 13 15 4 27 4 C37 4 46 10 50 19 C54 10 63 4 73 4 C85 4 96 13 96 28 C96 48 78 66 50 88 Z"
+              fill="url(#heartGradient)"/>
+      </svg>
+    </div>
+    <button id="replay" class="replay" type="button" aria-label="Показать букет и послание ещё раз">Ещё раз</button>
+  </div>
+</main>
+
+<!-- Запасной вариант без 3D -->
+<div id="fallback" class="fallback" hidden aria-live="polite">
+  <div class="fallback__inner">
+    <div class="fallback__heart" aria-hidden="true">
+      <svg viewBox="0 0 100 92" role="presentation" focusable="false">
+        <defs>
+          <linearGradient id="heartGradientFallback" x1="10%" y1="0%" x2="90%" y2="100%">
+            <stop offset="0%" stop-color="#ffe1c2"/>
+            <stop offset="45%" stop-color="#ff9ec6"/>
+            <stop offset="100%" stop-color="#ff5f8f"/>
+          </linearGradient>
+        </defs>
+        <path d="M50 88 C22 66 4 48 4 28 C4 13 15 4 27 4 C37 4 46 10 50 19 C54 10 63 4 73 4 C85 4 96 13 96 28 C96 48 78 66 50 88 Z"
+              fill="url(#heartGradientFallback)"/>
+      </svg>
+    </div>
+    <p class="fallback__note">Похоже, 3D-букет сегодня стесняется.<br>Но это не важно — послание всё равно для тебя.</p>
+    <div id="fallbackMessage" class="fallback__message"></div>
+  </div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════════
+     ①  ТЕКСТ ПОСЛАНИЯ — МЕНЯЙТЕ ТОЛЬКО СТРОКИ НИЖЕ.
+     Каждый элемент массива = одна строка на экране.
+══════════════════════════════════════════════════════════════════ -->
+<script>
+  window.MESSAGE = [
+    'Лиз, я очень люблю тебя.',
+    'Ты — самое светлое, что у меня есть.',
+    'Словами этого не передать —',
+    'пусть этот букет скажет за меня.',
+    'Твой смех делает день теплее.',
+    'С тобой даже тишина — счастье.',
+    'Спасибо, что ты есть.'
+  ];
+</script>
+
+<!-- Аварийный сценарий: если модули/CDN не загрузились — показываем текст -->
+<script>
+  window.__bouquetReady = false;
+
+  window.showBouquetFallback = function () {
+    if (document.body.classList.contains('is-fallback')) return;
+    document.body.classList.add('is-fallback');
+
+    var fallback = document.getElementById('fallback');
+    var box = document.getElementById('fallbackMessage');
+    if (!fallback || !box) return;
+
+    box.innerHTML = '';
+    (window.MESSAGE || ['Для тебя']).forEach(function (text, index) {
+      var p = document.createElement('p');
+      p.className = 'fallback__line';
+      p.textContent = text;
+      p.style.animationDelay = (0.3 + index * 0.55) + 's';
+      box.appendChild(p);
+    });
+
+    fallback.hidden = false;
+
+    // Кнопка «Ещё раз» в запасном режиме не нужна
+    var finale = document.getElementById('finale');
+    if (finale) finale.style.display = 'none';
+  };
+
+  // Страховка: если через 8 секунд сцена так и не ожила — показываем послание
+  window.setTimeout(function () {
+    if (!window.__bouquetReady) window.showBouquetFallback();
+  }, 8000);
+</script>
+
+<!-- GSAP для анимации текста -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+
+<!-- Three.js r161 через import map -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ═════════════════════════════════════════════════════════════════
+   ②  КОНФИГ СЦЕНЫ: цвета, тайминги, форма букета.
+   Текст послания лежит выше — в window.MESSAGE.
+═════════════════════════════════════════════════════════════════ */
+const CONFIG = {
+  // Тайминги в секундах
+  timings: {
+    stemGrow: 1.35,       // рост стебля
+    flowerStagger: 0.13,  // задержка между бутонами
+    bloomDuration: 1.15,  // раскрытие бутона
+    textDelay: 2.0,       // первая строка — через 2 с после появления букета
+    lineDuration: 1.25,   // проявление одной строки
+    linePause: 1.0,       // пауза между строками (7 строк — чуть короче)
+    finaleHold: 0.9       // пауза перед сердцем
+  },
+
+  colors: {
+    stem: 0x3f8a63,
+    leaf: 0x2f7050,
+    cuff: 0x2a1236,
+    gold: 0xffd3a3,
+    spark: [0xffd9b0, 0xffa8cf, 0xc9b3ff]
+  },
+
+  render: {
+    maxPixelRatio: 2,
+    particlesDesktop: 260,
+    particlesMobile: 140
+  },
+
+  // Букет: вид цветка, позиция головки [x, y, z], цвет, цвет сердцевины, размер.
+  // type: 'rose' | 'peony' | 'tulip' | 'daisy' | 'lavender' | 'gypsophila'.
+  // face — наклон головки к зрителю (для ромашек и тюльпанов).
+  flowerSpecs: [
+    { type: 'rose',       pos: [-0.05, 2.98, -0.30], color: 0xc9a9ff, inner: 0xf3e9ff, size: 1.02 }, // лиловая роза, центр
+    { type: 'rose',       pos: [-0.92, 2.54,  0.28], color: 0xfff1e4, inner: 0xffdcc9, size: 0.94 }, // кремовая роза
+    { type: 'rose',       pos: [ 0.90, 2.60,  0.30], color: 0xff8fb9, inner: 0xffd6e6, size: 1.00 }, // розовая роза
+    { type: 'peony',      pos: [-0.58, 2.26,  1.02], color: 0xffa9c8, inner: 0xffe6ef, size: 1.06, face: 0.30 }, // розовый пион
+    { type: 'peony',      pos: [ 0.74, 2.28,  0.94], color: 0xfff2e8, inner: 0xffdccb, size: 1.00, face: 0.30 }, // белый пион
+    { type: 'tulip',      pos: [-1.22, 2.26, -0.14], color: 0xff7a5c, inner: 0xffd2ab, size: 1.00, face: 0.34 }, // коралловый тюльпан
+    { type: 'tulip',      pos: [ 1.24, 2.36, -0.18], color: 0xffe8d2, inner: 0xfff8ec, size: 0.94, face: 0.34 }, // кремовый тюльпан
+    { type: 'daisy',      pos: [-1.02, 2.74, -0.72], color: 0xfff8ec, inner: 0xffe9c9, size: 0.94, face: 1.45 }, // ромашка
+    { type: 'daisy',      pos: [ 1.00, 2.80, -0.60], color: 0xfff8ec, inner: 0xffe9c9, size: 0.90, face: 1.45 }, // ромашка
+    { type: 'lavender',   pos: [-0.46, 3.02, -0.86], color: 0xb59bff, inner: 0xe9dcff, size: 1.00 }, // лаванда, высоко
+    { type: 'lavender',   pos: [ 0.40, 2.96,  0.58], color: 0xb59bff, inner: 0xe9dcff, size: 0.90 }, // лаванда, справа
+    { type: 'gypsophila', pos: [-1.34, 2.02,  0.56], color: 0xfff8f2, inner: 0xffd9e8, size: 1.00 }, // гипсофила
+    { type: 'gypsophila', pos: [ 1.30, 2.04,  0.62], color: 0xfff8f2, inner: 0xffd9e8, size: 0.94 }  // гипсофила
+  ]
+};
+
+/* ═════════════════════════════════════════════════════════════════
+   ③  СОСТОЯНИЕ И ССЫЛКИ НА DOM
+═════════════════════════════════════════════════════════════════ */
+const state = {
+  isMobile: window.innerWidth < 768,
+  replaying: false
+};
+
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const sceneEl = document.getElementById('scene');
+const messageEl = document.getElementById('message');
+const finaleEl = document.getElementById('finale');
+const heartEl = document.getElementById('heart');
+const replayEl = document.getElementById('replay');
+
+let renderer = null;
+let scene = null;
+let camera = null;
+let clock = null;
+
+let bouquetPivot = null;  // параллакс и «дыхание» букета
+let bouquetRoot = null;   // вход/рост всей композиции
+let bouquetModel = null;  // адаптивный масштаб
+
+const flowerParts = [];
+let greenery = null;      // зелень вокруг цветов
+let particles = null;
+let particleState = null;
+let halo = null;
+
+let bouquetTl = null;
+let textTl = null;
+let finaleTl = null;
+let animationId = 0;
+let firstFrame = true;
+
+let cameraBaseY = 1.85;
+let cameraLookY = 1.55;
+
+// Сглаженные координаты курсора (-1…1)
+const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
+
+/* ═════════════════════════════════════════════════════════════════
+   ④  ЗАПУСК
+═════════════════════════════════════════════════════════════════ */
+function boot() {
+  // Если послание уже показано запасным способом — сцену не поднимаем
+  if (document.body.classList.contains('is-fallback')) return;
+
+  // Без GSAP или WebGL показываем красивое текстовое послание
+  if (!window.gsap || !isWebGLAvailable()) {
+    window.showBouquetFallback();
+    return;
+  }
+
+  try {
+    initScene();
+    buildMessage();
+    createBouquet();
+    applyResponsiveState();
+    createParticles();
+    createHalo();
+
+    resetBouquet();
+    growBouquet();
+    animateText();
+    startLoop();
+
+    window.addEventListener('resize', onResize, { passive: true });
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    window.addEventListener('pointerleave', onPointerLeave);
+    replayEl.addEventListener('click', onReplay);
+
+    renderer.domElement.addEventListener('webglcontextlost', onContextLost, false);
+  } catch (error) {
+    console.error('[bouquet] Не удалось запустить сцену:', error);
+    window.showBouquetFallback();
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   ⑤  СЦЕНА, СВЕТ, КАМЕРА
+═════════════════════════════════════════════════════════════════ */
+function initScene() {
+  renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: true,
+    powerPreference: 'high-performance'
+  });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, CONFIG.render.maxPixelRatio));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x000000, 0);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.12;
+  sceneEl.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x120720, 0.028);
+
+  camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.position.set(0, 1.9, 6.8);
+  camera.lookAt(0, 1.55, 0);
+
+  clock = new THREE.Clock();
+
+  // Мягкий общий свет
+  scene.add(new THREE.HemisphereLight(0xffe7f5, 0x140a22, 1.05));
+
+  // Тёплый ключевой свет
+  const keyLight = new THREE.DirectionalLight(0xfff1df, 2.6);
+  keyLight.position.set(4.5, 8, 6.5);
+  scene.add(keyLight);
+
+  // Холодная подсветка сзади
+  const rimLight = new THREE.DirectionalLight(0xbca6ff, 1.0);
+  rimLight.position.set(-5, 3, -4);
+  scene.add(rimLight);
+
+  // Тёплая точка перед букетом
+  const frontPoint = new THREE.PointLight(0xffd2b8, 26, 14, 2);
+  frontPoint.position.set(0.6, 1.8, 4.2);
+  scene.add(frontPoint);
+
+  // Фиолетовая точка сзади
+  const violetPoint = new THREE.PointLight(0x9d7bff, 30, 18, 2);
+  violetPoint.position.set(3.2, 3.2, -3.6);
+  scene.add(violetPoint);
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   ⑥  АДАПТИВНОСТЬ
+═════════════════════════════════════════════════════════════════ */
+function applyResponsiveState() {
+  state.isMobile = window.innerWidth < 768;
+
+  const aspect = window.innerWidth / Math.max(1, window.innerHeight);
+  camera.aspect = aspect;
+  camera.fov = state.isMobile ? 45 : 40;
+  cameraBaseY = state.isMobile ? 1.75 : 1.85;
+  cameraLookY = state.isMobile ? 1.22 : 1.58;
+  camera.position.z = state.isMobile ? 7.8 : 6.8;
+  camera.updateProjectionMatrix();
+
+  if (bouquetModel) {
+    bouquetModel.scale.setScalar(state.isMobile ? 0.78 : 1);
+  }
+}
+
+function onResize() {
+  if (!renderer || !camera) return;
+
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, CONFIG.render.maxPixelRatio));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  applyResponsiveState();
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   ⑦  ТЕКСТ
+═════════════════════════════════════════════════════════════════ */
+function buildMessage() {
+  messageEl.innerHTML = '';
+
+  const lines = Array.isArray(window.MESSAGE) ? window.MESSAGE : ['Для тебя'];
+
+  lines.forEach(function (text) {
+    const line = document.createElement('p');
+    line.className = 'line';
+    line.textContent = text;
+    messageEl.appendChild(line);
+  });
+}
+
+function animateText() {
+  const lines = Array.from(messageEl.children);
+
+  if (!lines.length) {
+    textTl = gsap.timeline({ delay: 0.8, onComplete: showFinale });
+    return;
+  }
+
+  // Исходное состояние строк
+  gsap.set(lines, { opacity: 0, filter: 'blur(14px)', y: 26 });
+
+  const T = CONFIG.timings;
+  const delay = prefersReducedMotion ? 0.5 : T.textDelay;
+  const duration = prefersReducedMotion ? 0.5 : T.lineDuration;
+  const step = duration + (prefersReducedMotion ? 0.35 : T.linePause);
+
+  textTl = gsap.timeline({
+    delay: delay,
+    onComplete: showFinale
+  });
+
+  lines.forEach(function (line, index) {
+    textTl.to(line, {
+      opacity: 1,
+      filter: 'blur(0px)',
+      y: 0,
+      duration: duration,
+      ease: 'power3.out'
+    }, index * step);
+  });
+
+  // Пауза перед сердечком
+  textTl.to({}, { duration: prefersReducedMotion ? 0.2 : T.finaleHold });
+}
+
+function resetMessage() {
+  Array.from(messageEl.children).forEach(function (line) {
+    gsap.killTweensOf(line);
+    gsap.set(line, { opacity: 0, filter: 'blur(14px)', y: 26 });
+  });
+}
+
+function showFinale() {
+  if (!finaleEl || !heartEl) return;
+
+  finaleEl.classList.add('is-active');
+
+  if (finaleTl) finaleTl.kill();
+  finaleTl = gsap.timeline({
+    onComplete: function () { finaleEl.classList.add('is-pulsing'); }
+  })
+    .to(finaleEl, { opacity: 1, y: 0, duration: 1.1, ease: 'power2.out' }, 0)
+    .to(heartEl, { opacity: 1, scale: 1, duration: 1.5, ease: 'back.out(2.1)' }, 0.12);
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   ⑧  БУКЕТ: стебли, листья, бутоны, лента
+═════════════════════════════════════════════════════════════════ */
+function createBouquet() {
+  bouquetPivot = new THREE.Group();
+  scene.add(bouquetPivot);
+
+  bouquetRoot = new THREE.Group();
+  bouquetPivot.add(bouquetRoot);
+
+  bouquetModel = new THREE.Group();
+  bouquetModel.position.y = 0.32; // чуть приподнимаем композицию над нижним текстом
+  bouquetRoot.add(bouquetModel);
+
+  const stemMaterial = new THREE.MeshStandardMaterial({
+    color: CONFIG.colors.stem,
+    roughness: 0.72,
+    metalness: 0.04,
+    emissive: 0x0c3323,
+    emissiveIntensity: 0.5
+  });
+
+  const leafMaterial = new THREE.MeshStandardMaterial({
+    color: CONFIG.colors.leaf,
+    roughness: 0.6,
+    metalness: 0.04,
+    emissive: 0x0a2c1f,
+    emissiveIntensity: 0.55,
+    side: THREE.DoubleSide
+  });
+
+  const petalGeometry = new THREE.SphereGeometry(0.11, 16, 12);
+  petalGeometry.scale(0.8, 0.3, 1.5);
+  petalGeometry.translate(0, 0, 0.12);
+
+  const leafGeometry = new THREE.SphereGeometry(1, 12, 8);
+  const stemGeometry = new THREE.CylinderGeometry(0.014, 0.019, 1, 6, 1, false);
+  const centerGeometry = new THREE.SphereGeometry(0.075, 16, 12);
+  const spikeGeometry = new THREE.SphereGeometry(0.03, 8, 6);   // цветочек лаванды
+  const tinyGeometry = new THREE.SphereGeometry(0.024, 8, 6);   // цветочек гипсофилы
+
+  const centerMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffd27f,
+    emissive: 0xff8a3d,
+    emissiveIntensity: 0.7,
+    roughness: 0.4,
+    metalness: 0.2
+  });
+
+  const assets = {
+    petalGeometry,
+    leafGeometry,
+    stemGeometry,
+    centerGeometry,
+    spikeGeometry,
+    tinyGeometry,
+    centerMaterial,
+    stemMaterial,
+    leafMaterial
+  };
+
+  CONFIG.flowerSpecs.forEach(function (spec) {
+    const color = new THREE.Color(spec.color);
+    const innerColor = new THREE.Color(spec.inner);
+
+    assets.outerMaterial = new THREE.MeshStandardMaterial({
+      color: color,
+      roughness: 0.52,
+      metalness: 0.06,
+      emissive: color,
+      emissiveIntensity: 0.17,
+      side: THREE.DoubleSide
+    });
+
+    assets.innerMaterial = new THREE.MeshStandardMaterial({
+      color: innerColor,
+      roughness: 0.45,
+      metalness: 0.04,
+      emissive: innerColor,
+      emissiveIntensity: 0.24,
+      side: THREE.DoubleSide
+    });
+
+    flowerParts.push(createFlower(spec, assets));
+  });
+
+  createCuff();
+  createGreenery();
+}
+
+function createFlower(spec, assets) {
+  const flowerGroup = new THREE.Group();
+  bouquetModel.add(flowerGroup);
+
+  const hx = spec.pos[0];
+  const hy = spec.pos[1];
+  const hz = spec.pos[2];
+  const size = spec.size || 1;
+
+  // Стебли сходятся у основания и расходятся к головкам
+  const baseX = hx * 0.035;
+  const baseZ = hz * 0.035;
+
+  const mid = new THREE.Vector3(hx * 0.34, hy * 0.52, hz * 0.34);
+  const perpendicular = new THREE.Vector3(-hz, 0, hx).normalize().multiplyScalar(0.2);
+  mid.add(perpendicular);
+
+  const curve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(baseX, 0, baseZ),
+    mid,
+    new THREE.Vector3(hx, hy, hz)
+  ]);
+
+  // ── Стебель: цепочка тонких цилиндров вдоль кривой ──
+  const stemGroup = new THREE.Group();
+  flowerGroup.add(stemGroup);
+
+  const SEGMENTS = 9;
+  const points = curve.getPoints(SEGMENTS);
+  const up = new THREE.Vector3(0, 1, 0);
+
+  for (let i = 0; i < SEGMENTS; i++) {
+    const a = points[i];
+    const b = points[i + 1];
+    const direction = new THREE.Vector3().subVectors(b, a);
+    const length = direction.length();
+
+    const segment = new THREE.Mesh(assets.stemGeometry, assets.stemMaterial);
+    segment.position.copy(a).add(b).multiplyScalar(0.5);
+    segment.quaternion.setFromUnitVectors(up, direction.normalize());
+    segment.scale.set(1, length * 1.04, 1);
+    stemGroup.add(segment);
+  }
+
+  // ── Листья: сплющенные сферы, тянутся в сторону от центра ──
+  const outwardAngle = Math.atan2(hx, hz);
+  const leafSettings = [
+    { t: 0.42, yaw: -0.95, scale: 1.0 },
+    { t: 0.62, yaw: 0.85,  scale: 0.8 }
+  ];
+
+  leafSettings.forEach(function (leafSetting) {
+    const point = curve.getPoint(leafSetting.t);
+
+    const leafPivot = new THREE.Group();
+    leafPivot.position.copy(point);
+    leafPivot.rotation.order = 'YXZ';
+    leafPivot.rotation.y = outwardAngle + leafSetting.yaw;
+    leafPivot.rotation.x = -0.55;
+    leafPivot.rotation.z = (Math.random() - 0.5) * 0.35;
+
+    const leaf = new THREE.Mesh(assets.leafGeometry, assets.leafMaterial);
+    leaf.scale.set(0.075 * leafSetting.scale, 0.014, 0.2 * leafSetting.scale);
+    leaf.position.set(0, 0, 0.15 * leafSetting.scale);
+    leafPivot.add(leaf);
+
+    stemGroup.add(leafPivot);
+  });
+
+  // ── Головка бутона ──
+  const headGroup = new THREE.Group();
+  headGroup.position.copy(curve.getPoint(1));
+  headGroup.rotation.order = 'YXZ';
+  flowerGroup.add(headGroup);
+
+  // Наклон головки наружу от центра букета
+  const radial = Math.hypot(hx, hz) || 1;
+  const face = spec.face || 0;
+  const headBase = {
+    x: (hz / radial) * 0.15 + face + (Math.random() - 0.5) * 0.08,
+    y: Math.random() * Math.PI * 2,
+    z: -(hx / radial) * 0.15 + (Math.random() - 0.5) * 0.08
+  };
+  // Ромашка должна смотреть на зрителя, поэтому её не разворачиваем по кругу
+  if (spec.type === 'daisy') headBase.y = (Math.random() - 0.5) * 0.3;
+  const headStart = {
+    x: headBase.x + 0.2,
+    y: headBase.y - 1.15,
+    z: headBase.z - 0.1
+  };
+
+  headGroup.rotation.set(headStart.x, headStart.y, headStart.z);
+  headGroup.scale.setScalar(0.001);
+
+  // ── Головка: форма зависит от вида цветка ──
+  const petalRecords = buildHead(spec, assets, headGroup, size);
+
+  return {
+    stemGroup: stemGroup,
+    headGroup: headGroup,
+    petals: petalRecords,
+    headBase: headBase,
+    headStart: headStart
+  };
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   ГОЛОВКИ ЦВЕТОВ
+   Каждая функция добавляет меши в headGroup и возвращает список
+   лепестков для анимации: { group, base, start }.
+═════════════════════════════════════════════════════════════════ */
+
+function buildHead(spec, assets, headGroup, size) {
+  switch (spec.type) {
+    case 'peony':      return buildPeonyHead(assets, headGroup, size);
+    case 'tulip':      return buildTulipHead(assets, headGroup, size);
+    case 'daisy':      return buildDaisyHead(assets, headGroup, size);
+    case 'lavender':   return buildLavenderHead(assets, headGroup, size);
+    case 'gypsophila': return buildGypsophilaHead(assets, headGroup, size);
+    default:           return buildRoseHead(assets, headGroup, size);
+  }
+}
+
+// Один лепесток: поворотная группа + сплющенная сфера
+function addPetal(headGroup, records, assets, material, scale, base, start, height) {
+  const group = new THREE.Group();
+  group.rotation.order = 'YXZ';
+  group.rotation.set(start.x, start.y, start.z);
+
+  const petal = new THREE.Mesh(assets.petalGeometry, material);
+  petal.scale.set(scale.x, scale.y, scale.z);
+  petal.position.y = height || 0;
+  group.add(petal);
+  headGroup.add(group);
+
+  records.push({ group: group, base: base, start: start });
+}
+
+// Роза: три яруса лепестков, плотная сердцевина
+function buildRoseHead(assets, headGroup, size) {
+  const records = [];
+
+  const layers = [
+    { count: 8, tilt: 0.42, height: 0.000, offset: 0.00, scale: 1.00, material: assets.outerMaterial, roll: 0.18 },
+    { count: 7, tilt: 0.80, height: 0.035, offset: 0.45, scale: 0.78, material: assets.outerMaterial, roll: 0.26 },
+    { count: 5, tilt: 1.18, height: 0.075, offset: 0.20, scale: 0.55, material: assets.innerMaterial, roll: 0.22 }
+  ];
+
+  layers.forEach(function (layer) {
+    for (let i = 0; i < layer.count; i++) {
+      const angle = (i / layer.count) * Math.PI * 2 + layer.offset;
+
+      const base = {
+        x: -layer.tilt + (Math.random() - 0.5) * 0.12,
+        y: angle,
+        z: (Math.random() - 0.5) * layer.roll
+      };
+
+      const start = {
+        x: base.x - 0.35 - Math.random() * 0.3,
+        y: base.y + (Math.random() - 0.5) * 2.2,
+        z: base.z + (Math.random() - 0.5) * 0.5
+      };
+
+      const s = layer.scale * size * 1.18 * (0.92 + Math.random() * 0.16);
+      addPetal(headGroup, records, assets, layer.material, { x: s, y: s, z: s }, base, start, layer.height * size);
+    }
+  });
+
+  const center = new THREE.Mesh(assets.centerGeometry, assets.centerMaterial);
+  center.scale.set(size * 1.1, size * 0.75, size * 1.1);
+  center.position.y = 0.02 * size;
+  headGroup.add(center);
+
+  return records;
+}
+
+// Пион: четыре яруса широких «мятых» лепестков
+function buildPeonyHead(assets, headGroup, size) {
+  const records = [];
+
+  const layers = [
+    { count: 9, tilt: 0.38, height: 0.00, offset: 0.00, scale: 1.00, material: assets.outerMaterial, roll: 0.5 },
+    { count: 8, tilt: 0.70, height: 0.03, offset: 0.40, scale: 0.86, material: assets.outerMaterial, roll: 0.6 },
+    { count: 7, tilt: 1.00, height: 0.06, offset: 0.20, scale: 0.70, material: assets.innerMaterial, roll: 0.5 },
+    { count: 5, tilt: 1.25, height: 0.09, offset: 0.55, scale: 0.52, material: assets.innerMaterial, roll: 0.4 }
+  ];
+
+  layers.forEach(function (layer) {
+    for (let i = 0; i < layer.count; i++) {
+      const angle = (i / layer.count) * Math.PI * 2 + layer.offset;
+
+      const base = {
+        x: -layer.tilt + (Math.random() - 0.5) * 0.16,
+        y: angle,
+        z: (Math.random() - 0.5) * layer.roll
+      };
+
+      const start = {
+        x: base.x - 0.4 - Math.random() * 0.4,
+        y: base.y + (Math.random() - 0.5) * 2.6,
+        z: base.z + (Math.random() - 0.5) * 0.8
+      };
+
+      const k = size * layer.scale;
+      addPetal(headGroup, records, assets, layer.material,
+        { x: 1.15 * k, y: 0.50 * k, z: 1.10 * k }, base, start, layer.height * size);
+    }
+  });
+
+  const center = new THREE.Mesh(assets.centerGeometry, assets.centerMaterial);
+  center.scale.set(size * 0.6, size * 0.5, size * 0.6);
+  center.position.y = 0.05 * size;
+  headGroup.add(center);
+
+  return records;
+}
+
+// Тюльпан: закрытая чаша из шести лепестков
+function buildTulipHead(assets, headGroup, size) {
+  const records = [];
+
+  const layers = [
+    { count: 3, tilt: 0.20, height: 0.02, offset: 0.00, scale: 1.00, material: assets.outerMaterial },
+    { count: 3, tilt: 0.44, height: 0.07, offset: Math.PI / 3, scale: 0.86, material: assets.innerMaterial }
+  ];
+
+  layers.forEach(function (layer) {
+    for (let i = 0; i < layer.count; i++) {
+      const angle = (i / layer.count) * Math.PI * 2 + layer.offset;
+
+      const base = {
+        x: -layer.tilt + (Math.random() - 0.5) * 0.06,
+        y: angle,
+        z: (Math.random() - 0.5) * 0.06
+      };
+
+      const start = {
+        x: base.x - 0.35,
+        y: base.y + (Math.random() - 0.5) * 1.0,
+        z: base.z + 0.2
+      };
+
+      const k = size * layer.scale;
+      addPetal(headGroup, records, assets, layer.material,
+        { x: 0.95 * k, y: 0.95 * k, z: 1.15 * k }, base, start, layer.height * size);
+    }
+  });
+
+  // Плотная серединка, чтобы чаша не просвечивала
+  const core = new THREE.Mesh(assets.centerGeometry, assets.innerMaterial);
+  core.scale.set(size * 0.85, size * 0.95, size * 0.85);
+  core.position.y = 0.05 * size;
+  headGroup.add(core);
+
+  return records;
+}
+
+// Ромашка: два ряда тонких белых лепестков и золотая серединка
+function buildDaisyHead(assets, headGroup, size) {
+  const records = [];
+
+  for (let i = 0; i < 14; i++) {
+    const angle = (i / 14) * Math.PI * 2 + (i % 2) * 0.05;
+
+    const base = {
+      x: -0.04 + (Math.random() - 0.5) * 0.05,
+      y: angle,
+      z: (Math.random() - 0.5) * 0.10
+    };
+
+    const start = {
+      x: -1.25,
+      y: angle + (Math.random() - 0.5) * 1.6,
+      z: (Math.random() - 0.5) * 0.5
+    };
+
+    const k = size * (0.96 + Math.random() * 0.1);
+    addPetal(headGroup, records, assets, assets.outerMaterial,
+      { x: 0.50 * k, y: 0.12 * k, z: 1.30 * k }, base, start, 0);
+  }
+
+  // Короткий внутренний ряд — цветок выглядит пышнее
+  for (let i = 0; i < 10; i++) {
+    const angle = (i / 10) * Math.PI * 2 + 0.22;
+
+    const base = {
+      x: -0.16 + (Math.random() - 0.5) * 0.05,
+      y: angle,
+      z: (Math.random() - 0.5) * 0.06
+    };
+
+    const start = {
+      x: -1.40,
+      y: angle + (Math.random() - 0.5) * 1.2,
+      z: 0.2
+    };
+
+    addPetal(headGroup, records, assets, assets.outerMaterial,
+      { x: 0.45 * size, y: 0.11 * size, z: 0.95 * size }, base, start, 0.006 * size);
+  }
+
+  const center = new THREE.Mesh(assets.centerGeometry, assets.centerMaterial);
+  center.scale.set(size * 1.15, size * 0.5, size * 1.15);
+  center.position.y = 0.035 * size;
+  headGroup.add(center);
+
+  return records;
+}
+
+// Лаванда: колосок из мелких цветочков (InstancedMesh — один вызов отрисовки)
+function buildLavenderHead(assets, headGroup, size) {
+  const count = 26;
+  const spikeLength = 0.44 * size;
+  const floretMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.62,
+    metalness: 0.02,
+    emissive: 0x6b4bd6,
+    emissiveIntensity: 0.28
+  });
+
+  const florets = new THREE.InstancedMesh(assets.spikeGeometry, floretMaterial, count);
+  const dummy = new THREE.Object3D();
+  const from = new THREE.Color(0x7d5cf0);
+  const to = new THREE.Color(0xe4d6ff);
+
+  for (let i = 0; i < count; i++) {
+    const t = i / (count - 1);
+    const angle = i * 2.39996 + t * 1.4; // золотая спираль
+    const radius = (0.055 - t * 0.012) * size * (0.8 + Math.random() * 0.4);
+
+    dummy.position.set(
+      Math.cos(angle) * radius,
+      0.04 + t * spikeLength,
+      Math.sin(angle) * radius
+    );
+    dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+    dummy.scale.setScalar((0.85 + Math.random() * 0.5) * (1 - t * 0.15) * size);
+    dummy.updateMatrix();
+    florets.setMatrixAt(i, dummy.matrix);
+    florets.setColorAt(i, from.clone().lerp(to, t));
+  }
+
+  florets.instanceMatrix.needsUpdate = true;
+  if (florets.instanceColor) florets.instanceColor.needsUpdate = true;
+  florets.frustumCulled = false;
+  headGroup.add(florets);
+
+  // Тонкая ось колоска
+  const axis = new THREE.Mesh(assets.stemGeometry, assets.stemMaterial);
+  axis.scale.set(0.45, spikeLength + 0.05, 0.45);
+  axis.position.y = (spikeLength + 0.05) * 0.5;
+  headGroup.add(axis);
+
+  return [];
+}
+
+// Гипсофила: воздушное облачко мелких цветочков на тонких веточках
+function buildGypsophilaHead(assets, headGroup, size) {
+  const branchCount = 6;
+  const branchLength = 0.26 * size;
+  const up = new THREE.Vector3(0, 1, 0);
+  const tips = [];
+
+  for (let b = 0; b < branchCount; b++) {
+    const angle = (b / branchCount) * Math.PI * 2 + Math.random() * 0.4;
+    const lean = 0.55 + Math.random() * 0.35;
+    const dir = new THREE.Vector3(
+      Math.cos(angle) * lean,
+      0.75 + Math.random() * 0.5,
+      Math.sin(angle) * lean
+    ).normalize();
+    const len = branchLength * (0.7 + Math.random() * 0.6);
+
+    const branch = new THREE.Mesh(assets.stemGeometry, assets.stemMaterial);
+    branch.scale.set(0.38, len, 0.38);
+    branch.quaternion.setFromUnitVectors(up, dir);
+    branch.position.copy(dir).multiplyScalar(len * 0.5);
+    headGroup.add(branch);
+
+    tips.push(dir.clone().multiplyScalar(len));
+  }
+
+  const count = 36;
+  const floretMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.55,
+    metalness: 0.02,
+    emissive: 0xffdbe8,
+    emissiveIntensity: 0.32
+  });
+
+  const florets = new THREE.InstancedMesh(assets.tinyGeometry, floretMaterial, count);
+  const dummy = new THREE.Object3D();
+  const baseColor = new THREE.Color(0xfff8f2);
+  const tipColor = new THREE.Color(0xffd9e8);
+
+  for (let i = 0; i < count; i++) {
+    const tip = tips[i % tips.length];
+    const spread = 0.085 * size;
+
+    dummy.position.set(
+      tip.x + (Math.random() - 0.5) * spread,
+      tip.y + (Math.random() - 0.5) * spread * 1.2 + 0.02 * size,
+      tip.z + (Math.random() - 0.5) * spread
+    );
+    dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+    dummy.scale.setScalar((0.75 + Math.random() * 0.7) * size);
+    dummy.updateMatrix();
+    florets.setMatrixAt(i, dummy.matrix);
+    florets.setColorAt(i, baseColor.clone().lerp(tipColor, Math.random()));
+  }
+
+  florets.instanceMatrix.needsUpdate = true;
+  if (florets.instanceColor) florets.instanceColor.needsUpdate = true;
+  florets.frustumCulled = false;
+  headGroup.add(florets);
+
+  return [];
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   ⑥  ЗЕЛЕНЬ
+
+   Длинные узкие листья (рускус), которые выходят из-под цветов
+   и дают букету объём. Все листья — сильно сплющенные сферы,
+   наклонённые по касательной к своей дуге.
+═════════════════════════════════════════════════════════════════ */
+function createGreenery() {
+  greenery = new THREE.Group();
+  bouquetModel.add(greenery);
+
+  const up = new THREE.Vector3(0, 1, 0);
+
+  const greeneryMaterial = new THREE.MeshStandardMaterial({
+    color: 0x2f6b4a,
+    roughness: 0.66,
+    metalness: 0.03,
+    emissive: 0x0c3323,
+    emissiveIntensity: 0.5,
+    side: THREE.DoubleSide
+  });
+
+  const stemGeometry = new THREE.CylinderGeometry(0.009, 0.013, 1, 5, 1, false);
+  const bladeGeometry = new THREE.SphereGeometry(1, 10, 8);
+
+  // Один лист: вытянутая пластина, направленная по вектору dir
+  function addBlade(point, dir, bladeScale, roll) {
+    const pivot = new THREE.Group();
+    pivot.position.copy(point);
+    pivot.quaternion.setFromUnitVectors(up, dir.clone().normalize());
+    pivot.rotateY(roll);
+
+    const blade = new THREE.Mesh(bladeGeometry, greeneryMaterial);
+    blade.scale.set(0.042 * bladeScale, 0.21 * bladeScale, 0.010 * bladeScale);
+    blade.position.y = 0.21 * bladeScale;
+    pivot.add(blade);
+
+    greenery.add(pivot);
+  }
+
+  const SPRAYS = 9;
+
+  for (let i = 0; i < SPRAYS; i++) {
+    const angle = (i / SPRAYS) * Math.PI * 2 + 0.35 * (Math.random() - 0.5);
+    const outward = 0.55 + Math.random() * 0.35;
+    const top = 1.35 + Math.random() * 0.75;
+
+    const base = new THREE.Vector3(Math.cos(angle) * 0.07, 0.3, Math.sin(angle) * 0.07);
+    const mid = new THREE.Vector3(
+      Math.cos(angle) * outward * 0.42,
+      0.3 + top * 0.55,
+      Math.sin(angle) * outward * 0.42
+    );
+    const head = new THREE.Vector3(
+      Math.cos(angle) * outward,
+      0.3 + top,
+      Math.sin(angle) * outward
+    );
+
+    const curve = new THREE.CatmullRomCurve3([base, mid, head]);
+    const SEGMENTS = 5;
+
+    for (let s = 0; s < SEGMENTS; s++) {
+      const t0 = s / SEGMENTS;
+      const t1 = (s + 1) / SEGMENTS;
+      const p0 = curve.getPoint(t0);
+      const p1 = curve.getPoint(t1);
+
+      const dir = p1.clone().sub(p0);
+      const length = dir.length();
+
+      const segment = new THREE.Mesh(stemGeometry, greeneryMaterial);
+      segment.scale.set(1, length * 1.05, 1);
+      segment.position.copy(p0).add(p1).multiplyScalar(0.5);
+      segment.quaternion.setFromUnitVectors(up, dir.normalize());
+      greenery.add(segment);
+
+      // Листья отходят от стебля на двух уровнях
+      if (s === 1 || s === 3) {
+        const dirOut = new THREE.Vector3(Math.cos(angle), 0.85, Math.sin(angle)).normalize();
+        addBlade(p1, dirOut, 0.85 + Math.random() * 0.35, (Math.random() - 0.5) * 0.5);
+      }
+    }
+
+    // Верхний лист продолжает дугу
+    const tipDir = head.clone().sub(curve.getPoint(0.75)).normalize();
+    addBlade(head, tipDir, 0.95 + Math.random() * 0.3, (Math.random() - 0.5) * 0.4);
+  }
+
+  greenery.scale.setScalar(0.001);
+}
+
+function createCuff() {
+  // Тёмная «манжета» у основания стеблей
+  const cuffMaterial = new THREE.MeshStandardMaterial({
+    color: CONFIG.colors.cuff,
+    roughness: 0.36,
+    metalness: 0.32,
+    emissive: 0x1a0a22,
+    emissiveIntensity: 0.45,
+    side: THREE.DoubleSide
+  });
+
+  const cuff = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.155, 0.225, 0.32, 32, 1, true),
+    cuffMaterial
+  );
+  cuff.position.y = 0.16;
+  bouquetModel.add(cuff);
+
+  // Золотая лента
+  const ribbonMaterial = new THREE.MeshStandardMaterial({
+    color: CONFIG.colors.gold,
+    roughness: 0.28,
+    metalness: 0.55,
+    emissive: 0xff9e6b,
+    emissiveIntensity: 0.32
+  });
+
+  const ribbon = new THREE.Mesh(
+    new THREE.TorusGeometry(0.158, 0.017, 10, 48),
+    ribbonMaterial
+  );
+  ribbon.rotation.x = Math.PI / 2;
+  ribbon.position.y = 0.3;
+  bouquetModel.add(ribbon);
+
+  const knot = new THREE.Mesh(new THREE.SphereGeometry(0.034, 12, 10), ribbonMaterial);
+  knot.position.set(0.165, 0.295, 0);
+  bouquetModel.add(knot);
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   ⑨  ЧАСТИЦЫ-ИСКРЫ И ОРЕОЛ
+═════════════════════════════════════════════════════════════════ */
+function makeRadialTexture(size, stops) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  stops.forEach(function (stop) { gradient.addColorStop(stop[0], stop[1]); });
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function createParticles() {
+  const count = state.isMobile ? CONFIG.render.particlesMobile : CONFIG.render.particlesDesktop;
+
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const speeds = new Float32Array(count);
+  const phases = new Float32Array(count);
+
+  const palette = CONFIG.colors.spark.map(function (hex) { return new THREE.Color(hex); });
+
+  for (let i = 0; i < count; i++) {
+    positions[i * 3] = (Math.random() - 0.5) * 10;
+    positions[i * 3 + 1] = Math.random() * 5.6;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 6;
+
+    const color = palette[Math.floor(Math.random() * palette.length)];
+    colors[i * 3] = color.r;
+    colors[i * 3 + 1] = color.g;
+    colors[i * 3 + 2] = color.b;
+
+    speeds[i] = 0.025 + Math.random() * 0.07;
+    phases[i] = Math.random() * Math.PI * 2;
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+  const texture = makeRadialTexture(64, [
+    [0.0, 'rgba(255, 255, 255, 1)'],
+    [0.22, 'rgba(255, 240, 220, 0.95)'],
+    [0.48, 'rgba(255, 190, 220, 0.42)'],
+    [1.0, 'rgba(255, 190, 220, 0)']
+  ]);
+
+  const material = new THREE.PointsMaterial({
+    size: 0.07,
+    map: texture,
+    transparent: true,
+    opacity: 0.8,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    vertexColors: true,
+    sizeAttenuation: true,
+    toneMapped: false
+  });
+
+  particles = new THREE.Points(geometry, material);
+  particles.frustumCulled = false;
+  scene.add(particles);
+
+  particleState = { count: count, speeds: speeds, phases: phases };
+}
+
+function createHalo() {
+  const texture = makeRadialTexture(256, [
+    [0.0, 'rgba(255, 205, 230, 0.5)'],
+    [0.35, 'rgba(215, 140, 255, 0.2)'],
+    [1.0, 'rgba(0, 0, 0, 0)']
+  ]);
+
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    color: 0xff9ccf,
+    transparent: true,
+    opacity: 0.25,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false
+  });
+
+  halo = new THREE.Sprite(material);
+  halo.scale.set(7.6, 7.6, 1);
+  halo.position.set(0, 1.8, -2.6);
+  scene.add(halo);
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   ⑩  РОСТ БУКЕТА (GSAP)
+═════════════════════════════════════════════════════════════════ */
+function resetBouquet() {
+  flowerParts.forEach(function (flower) {
+    gsap.killTweensOf(flower.stemGroup.scale);
+    gsap.killTweensOf(flower.headGroup.scale);
+    gsap.killTweensOf(flower.headGroup.rotation);
+
+    flower.stemGroup.scale.set(1, 0.001, 1);
+    flower.headGroup.scale.setScalar(0.001);
+    flower.headGroup.rotation.set(flower.headStart.x, flower.headStart.y, flower.headStart.z);
+
+    flower.petals.forEach(function (petal) {
+      gsap.killTweensOf(petal.group.rotation);
+      petal.group.rotation.set(petal.start.x, petal.start.y, petal.start.z);
+    });
+  });
+
+  gsap.killTweensOf([bouquetRoot.position, bouquetRoot.scale, bouquetRoot.rotation]);
+  bouquetRoot.position.set(0, -0.35, 0);
+  bouquetRoot.scale.set(0.92, 0.92, 0.92);
+  bouquetRoot.rotation.set(0, -0.2, 0.04);
+
+  if (greenery) {
+    gsap.killTweensOf(greenery.scale);
+    greenery.scale.setScalar(0.001);
+  }
+}
+
+function growBouquet() {
+  const T = CONFIG.timings;
+
+  bouquetTl = gsap.timeline();
+
+  // Общий вход композиции
+  bouquetTl.to(bouquetRoot.position, { y: 0, duration: 1.5, ease: 'power3.out' }, 0);
+  bouquetTl.to(bouquetRoot.scale, { x: 1, y: 1, z: 1, duration: 1.7, ease: 'power2.out' }, 0);
+  bouquetTl.to(bouquetRoot.rotation, { x: 0, y: 0, z: 0, duration: 1.6, ease: 'power2.out' }, 0);
+
+  // Зелень проявляется вместе со стеблями
+  if (greenery) {
+    bouquetTl.to(greenery.scale, { x: 1, y: 1, z: 1, duration: 1.4, ease: 'power2.out' }, 0.15);
+  }
+
+  flowerParts.forEach(function (flower, index) {
+    const start = 0.2 + index * T.flowerStagger;
+
+    // Стебель тянется вверх
+    bouquetTl.to(flower.stemGroup.scale, {
+      y: 1,
+      duration: T.stemGrow,
+      ease: 'power2.out'
+    }, start);
+
+    // Бутон раскрывается
+    const bloomStart = start + T.stemGrow * 0.72;
+
+    bouquetTl.to(flower.headGroup.scale, {
+      x: 1, y: 1, z: 1,
+      duration: T.bloomDuration,
+      ease: 'back.out(2.4)'
+    }, bloomStart);
+
+    bouquetTl.to(flower.headGroup.rotation, {
+      x: flower.headBase.x,
+      y: flower.headBase.y,
+      z: flower.headBase.z,
+      duration: T.bloomDuration + 0.4,
+      ease: 'power3.out'
+    }, bloomStart);
+
+    // Лепестки кружатся и оседают на место
+    flower.petals.forEach(function (petal, petalIndex) {
+      bouquetTl.to(petal.group.rotation, {
+        x: petal.base.x,
+        y: petal.base.y,
+        z: petal.base.z,
+        duration: T.bloomDuration + 0.35,
+        ease: 'power3.out'
+      }, bloomStart + 0.1 + (petalIndex % 7) * 0.025 + Math.random() * 0.08);
+    });
+  });
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   ⑪  ПОВТОР
+═════════════════════════════════════════════════════════════════ */
+function onReplay() {
+  if (state.replaying) return;
+  state.replaying = true;
+
+  if (bouquetTl) bouquetTl.kill();
+  if (textTl) textTl.kill();
+  if (finaleTl) finaleTl.kill();
+
+  gsap.killTweensOf([finaleEl, heartEl]);
+  finaleEl.classList.remove('is-active', 'is-pulsing');
+  gsap.set(finaleEl, { opacity: 0, y: 10 });
+  gsap.set(heartEl, { opacity: 0, scale: 0.6 });
+
+  resetBouquet();
+  resetMessage();
+
+  // Короткая пауза, чтобы глаз «отпустил» предыдущий кадр
+  window.setTimeout(function () {
+    growBouquet();
+    animateText();
+    state.replaying = false;
+  }, 300);
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   ⑫  ЦИКЛ АНИМАЦИИ
+═════════════════════════════════════════════════════════════════ */
+function startLoop() {
+  animateLoop();
+}
+
+function animateLoop() {
+  animationId = window.requestAnimationFrame(animateLoop);
+
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+
+  // Сглаживание положения курсора
+  pointer.x += (pointer.tx - pointer.x) * Math.min(1, dt * 2.4);
+  pointer.y += (pointer.ty - pointer.y) * Math.min(1, dt * 2.4);
+
+  // Параллакс только на десктопе; на мобильных — лёгкое «дыхание» вращением
+  const parallax = !state.isMobile && !prefersReducedMotion;
+  const idleAmount = prefersReducedMotion ? 0 : (state.isMobile ? 0.26 : 0.06);
+  const idleYaw = Math.sin(t * 0.22) * idleAmount;
+
+  const targetYaw = (parallax ? pointer.x * 0.4 : 0) + idleYaw;
+  const targetPitch = parallax ? -pointer.y * 0.14 : 0;
+
+  bouquetPivot.rotation.y += (targetYaw - bouquetPivot.rotation.y) * Math.min(1, dt * 2.8);
+  bouquetPivot.rotation.x += (targetPitch - bouquetPivot.rotation.x) * Math.min(1, dt * 2.8);
+  bouquetPivot.rotation.z = Math.sin(t * 0.4) * 0.01;
+
+  // Дыхание камеры
+  const breath = prefersReducedMotion ? 0 : 1;
+  const cameraDriftX = Math.sin(t * 0.31 + 1.1) * 0.07 * breath;
+  const cameraDriftY = Math.sin(t * 0.47) * 0.05 * breath;
+
+  const targetCameraX = cameraDriftX + (parallax ? pointer.x * 0.12 : 0);
+  camera.position.x += (targetCameraX - camera.position.x) * Math.min(1, dt * 2.2);
+  camera.position.y = cameraBaseY + cameraDriftY;
+  camera.lookAt(0, cameraLookY, 0);
+
+  // Искры медленно поднимаются и рождаются заново
+  if (particles && particleState) {
+    const positionAttribute = particles.geometry.attributes.position;
+    const array = positionAttribute.array;
+
+    for (let i = 0; i < particleState.count; i++) {
+      const yIndex = i * 3 + 1;
+      array[yIndex] += particleState.speeds[i] * dt;
+
+      if (array[yIndex] > 5.8) {
+        array[yIndex] = -0.5;
+        array[i * 3] = (Math.random() - 0.5) * 10;
+        array[i * 3 + 2] = (Math.random() - 0.5) * 6;
+      }
+    }
+
+    positionAttribute.needsUpdate = true;
+    particles.material.opacity = 0.66 + Math.sin(t * 0.9) * 0.12;
+  }
+
+  // Ореол еле дышит
+  if (halo) {
+    const haloScale = 7.6 + Math.sin(t * 0.5) * 0.18;
+    halo.scale.set(haloScale, haloScale, 1);
+    halo.material.opacity = 0.23 + Math.sin(t * 0.5 + 1) * 0.05;
+  }
+
+  renderer.render(scene, camera);
+
+  // Плавное проявление сцены после первого кадра
+  if (firstFrame) {
+    firstFrame = false;
+    sceneEl.classList.add('is-visible');
+    window.__bouquetReady = true;
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   ⑬  СОБЫТИЯ
+═════════════════════════════════════════════════════════════════ */
+function onPointerMove(event) {
+  if (state.isMobile) return;
+
+  pointer.tx = (event.clientX / window.innerWidth) * 2 - 1;
+  pointer.ty = (event.clientY / window.innerHeight) * 2 - 1;
+}
+
+function onPointerLeave() {
+  pointer.tx = 0;
+  pointer.ty = 0;
+}
+
+function onContextLost(event) {
+  event.preventDefault();
+  window.cancelAnimationFrame(animationId);
+  window.showBouquetFallback();
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   ⑭  ПРОВЕРКА WEBGL
+═════════════════════════════════════════════════════════════════ */
+function isWebGLAvailable() {
+  try {
+    const canvas = document.createElement('canvas');
+    return !!(
+      window.WebGLRenderingContext &&
+      (canvas.getContext('webgl2') || canvas.getContext('webgl'))
+    );
+  } catch (error) {
+    return false;
+  }
+}
+
+/* Запуск */
+boot();
+</script>
+</body>
+</html>
